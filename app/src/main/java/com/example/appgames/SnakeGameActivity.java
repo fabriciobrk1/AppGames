@@ -8,6 +8,11 @@ import android.support.v7.app.AppCompatActivity;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.View;
+import android.widget.Button;
+import android.widget.TextView;
+
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,6 +22,9 @@ public class SnakeGameActivity extends AppCompatActivity {
     private SurfaceHolder holder;
     private Paint paint, foodPaint, scorePaint;
     private boolean isPlaying = true;
+    private boolean isGameOver = false;
+    private TextView textScore;
+
 
     private int snakeX = 200, snakeY = 200;
     private int snakeSpeed = 20;
@@ -30,8 +38,12 @@ public class SnakeGameActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_snake_game);
 
+        textScore = findViewById(R.id.textScore);
+
         gameSurface = findViewById(R.id.gameSurface);
         holder = gameSurface.getHolder();
+
+
         initializePaints();
 
         gameSurface.getHolder().addCallback(new SurfaceHolder.Callback() {
@@ -87,7 +99,14 @@ public class SnakeGameActivity extends AppCompatActivity {
         snakeY = 200;
         snakeBody.clear();
         snakeBody.add(new int[]{snakeX, snakeY});
-        score = 0;
+
+        if (!isGameOver) { // Só reseta a pontuação depois que Game Over foi exibido!
+            score = 0;
+            if (textScore != null) {
+                textScore.post(() -> textScore.setText("Pontuação: " + score));
+            }
+        }
+
         generateFood();
         isPlaying = true;
     }
@@ -108,9 +127,11 @@ public class SnakeGameActivity extends AppCompatActivity {
 
     private void startGameLoop() {
         new Thread(() -> {
-            while (isPlaying) {
-                updateGame();
-                renderGame();
+            while (true) {
+                if (isPlaying && !isGameOver) { // Só continua se o jogo não estiver pausado
+                    updateGame();
+                    renderGame();
+                }
 
                 try { Thread.sleep(100); }
                 catch (InterruptedException e) { e.printStackTrace(); }
@@ -132,18 +153,23 @@ public class SnakeGameActivity extends AppCompatActivity {
 
         if (snakeX == foodX && snakeY == foodY) {
             score++;
+            runOnUiThread(() -> textScore.setText("Pontuação: " + score)); // Atualiza a pontuação corretamente
             generateFood();
+
         } else {
             snakeBody.remove(snakeBody.size() - 1);
         }
 
+        // Chama Game Over antes de resetar o jogo
         if (snakeX < 0 || snakeX > gameSurface.getWidth() || snakeY < 0 || snakeY > gameSurface.getHeight()) {
-            resetGame();
+            showGameOver(); // Exibe a pontuação antes de resetar
+            return; // Para evitar que o jogo continue após Game Over
         }
 
         for (int i = 1; i < snakeBody.size(); i++) {
             if (snakeBody.get(i)[0] == snakeX && snakeBody.get(i)[1] == snakeY) {
-                resetGame();
+                showGameOver(); // Exibe a pontuação antes de resetar
+                return; // Para evitar que o jogo continue após Game Over
             }
         }
     }
@@ -159,12 +185,46 @@ public class SnakeGameActivity extends AppCompatActivity {
                 canvas.drawCircle(part[0], part[1], 15, paint);
             }
 
-            canvas.drawText("Pontuação: " + score, 50, 50, scorePaint);
+
 
             holder.unlockCanvasAndPost(canvas);
         }
     }
 
+    private void showGameOver() {
+        runOnUiThread(() -> {
+            isGameOver = true; // Pausa o jogo
+
+            if (textScore != null) { // Evita NullPointerException
+                textScore.post(() -> textScore.setText("GAME OVER! Pontuação final: " + score));
+            }
+
+            Button restartButton = findViewById(R.id.buttonRestart);
+            if (restartButton != null) { // Evita erro ao acessar botão
+                restartButton.setVisibility(View.VISIBLE);
+            }
+
+            isPlaying = false; // Garante que o jogo realmente pare
+        });
+    }
+
+    public void restartGame(View view) {
+        isGameOver = false; // Retira o estado de Game Over
+        isPlaying = true; // Permite que o jogo continue rodando
+
+        score = 0;
+
+        if (textScore != null) {
+            textScore.post(() -> textScore.setText("Pontuação: " + score));
+        }
+
+        Button restartButton = findViewById(R.id.buttonRestart);
+        if (restartButton != null) {
+            restartButton.setVisibility(View.GONE);
+        }
+
+        resetGame(); // Reinicia o jogo e permite movimento novamente
+    }
     @Override
     protected void onDestroy() {
         super.onDestroy();
