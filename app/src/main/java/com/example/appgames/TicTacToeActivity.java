@@ -1,15 +1,21 @@
 package com.example.appgames;
 
+import android.content.SharedPreferences;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 public class TicTacToeActivity extends AppCompatActivity {
     private Button[][] buttons = new Button[3][3];
     private boolean player1Turn = true;
     private int roundCount = 0;
+
+    private int winsX = 0;
+    private int wins0 = 0;
+    private int draws = 0;
 
 
 
@@ -18,6 +24,8 @@ public class TicTacToeActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_tictactoe);
 
+        loadStats();
+        updateStatsDisplay();
         initializeButtons();
     }
 
@@ -86,6 +94,17 @@ public class TicTacToeActivity extends AppCompatActivity {
 
     private void showResult(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+
+        if (message.contains("X venceu")) {
+            winsX++;
+        } else if (message.contains("O venceu")) {
+            wins0++;
+        } else if (message.contains("Empate")) {
+            draws++;
+        }
+
+        saveStats(); // Salvar os novos valores
+        updateStatsDisplay(); // Atualizar a tela
         resetGame();
     }
 
@@ -97,5 +116,26 @@ public class TicTacToeActivity extends AppCompatActivity {
         }
         roundCount = 0;
         player1Turn = true;
+    }
+
+    private void saveStats() {
+        SharedPreferences prefs = getSharedPreferences("GameStats", MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putInt("winsX", winsX);
+        editor.putInt("winsO", wins0);
+        editor.putInt("draws", draws);
+        editor.apply();
+    }
+
+    private void loadStats() {
+        SharedPreferences prefs = getSharedPreferences("GameStats", MODE_PRIVATE);
+        winsX = prefs.getInt("winsX", 0);
+        wins0 = prefs.getInt("winsO", 0);
+        draws = prefs.getInt("draws", 0);
+    }
+
+    private void updateStatsDisplay() {
+        TextView statsView = findViewById(R.id.gameStats);
+        statsView.setText("Vitórias X: " + winsX + " | Vitórias O: " + wins0 + " | Empates: " + draws);
     }
 }
