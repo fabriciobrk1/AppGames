@@ -1,0 +1,173 @@
+package com.example.appgames;
+
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
+import android.view.MotionEvent;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
+import java.util.ArrayList;
+import java.util.List;
+
+public class SnakeGameActivity extends AppCompatActivity {
+
+    private SurfaceView gameSurface;
+    private SurfaceHolder holder;
+    private Paint paint, foodPaint, scorePaint;
+    private boolean isPlaying = true;
+
+    private int snakeX = 200, snakeY = 200;
+    private int snakeSpeed = 20;
+    private int foodX, foodY;
+    private int score = 0;
+    private String direction = "RIGHT";
+    private List<int[]> snakeBody = new ArrayList<>();
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_snake_game);
+
+        gameSurface = findViewById(R.id.gameSurface);
+        holder = gameSurface.getHolder();
+        initializePaints();
+
+        gameSurface.getHolder().addCallback(new SurfaceHolder.Callback() {
+            @Override
+            public void surfaceCreated(SurfaceHolder surfaceHolder) {
+                holder = surfaceHolder;
+                resetGame();
+                startGameLoop();
+            }
+
+            @Override
+            public void surfaceChanged(SurfaceHolder surfaceHolder, int format, int width, int height) {}
+
+            @Override
+            public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
+                isPlaying = false;
+            }
+        });
+
+        gameSurface.setOnTouchListener((v, event) -> handleTouch(event));
+    }
+
+    private void initializePaints() {
+        paint = new Paint();
+        paint.setColor(Color.GREEN);
+
+        foodPaint = new Paint();
+        foodPaint.setColor(Color.RED);
+
+        scorePaint = new Paint();
+        scorePaint.setColor(Color.WHITE);
+        scorePaint.setTextSize(40);
+    }
+
+    private boolean handleTouch(MotionEvent event) {
+        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+            float touchX = event.getX();
+            float touchY = event.getY();
+
+            if (Math.abs(touchX - snakeX) > Math.abs(touchY - snakeY)) {
+                if (!direction.equals("LEFT") && !direction.equals("RIGHT"))
+                    direction = (touchX < snakeX) ? "LEFT" : "RIGHT";
+            } else {
+                if (!direction.equals("UP") && !direction.equals("DOWN"))
+                    direction = (touchY < snakeY) ? "UP" : "DOWN";
+            }
+        }
+        return true;
+    }
+
+    private void resetGame() {
+        snakeX = 200;
+        snakeY = 200;
+        snakeBody.clear();
+        snakeBody.add(new int[]{snakeX, snakeY});
+        score = 0;
+        generateFood();
+        isPlaying = true;
+    }
+
+    private void generateFood() {
+        do {
+            foodX = (int) (Math.random() * gameSurface.getWidth() / 20) * 20;
+            foodY = (int) (Math.random() * gameSurface.getHeight() / 20) * 20;
+        } while (isOnSnake(foodX, foodY));
+    }
+
+    private boolean isOnSnake(int x, int y) {
+        for (int[] part : snakeBody) {
+            if (part[0] == x && part[1] == y) return true;
+        }
+        return false;
+    }
+
+    private void startGameLoop() {
+        new Thread(() -> {
+            while (isPlaying) {
+                updateGame();
+                renderGame();
+
+                try { Thread.sleep(100); }
+                catch (InterruptedException e) { e.printStackTrace(); }
+            }
+        }).start();
+    }
+
+    private void updateGame() {
+        int newX = snakeX, newY = snakeY;
+
+        if (direction.equals("UP")) newY -= snakeSpeed;
+        else if (direction.equals("DOWN")) newY += snakeSpeed;
+        else if (direction.equals("LEFT")) newX -= snakeSpeed;
+        else if (direction.equals("RIGHT")) newX += snakeSpeed;
+
+        snakeBody.add(0, new int[]{newX, newY});
+        snakeX = newX;
+        snakeY = newY;
+
+        if (snakeX == foodX && snakeY == foodY) {
+            score++;
+            generateFood();
+        } else {
+            snakeBody.remove(snakeBody.size() - 1);
+        }
+
+        if (snakeX < 0 || snakeX > gameSurface.getWidth() || snakeY < 0 || snakeY > gameSurface.getHeight()) {
+            resetGame();
+        }
+
+        for (int i = 1; i < snakeBody.size(); i++) {
+            if (snakeBody.get(i)[0] == snakeX && snakeBody.get(i)[1] == snakeY) {
+                resetGame();
+            }
+        }
+    }
+
+    private void renderGame() {
+        if (holder.getSurface().isValid()) {
+            Canvas canvas = holder.lockCanvas();
+            canvas.drawColor(Color.BLACK);
+
+            canvas.drawCircle(foodX, foodY, 15, foodPaint);
+
+            for (int[] part : snakeBody) {
+                canvas.drawCircle(part[0], part[1], 15, paint);
+            }
+
+            canvas.drawText("Pontuação: " + score, 50, 50, scorePaint);
+
+            holder.unlockCanvasAndPost(canvas);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        isPlaying = false;
+    }
+}
